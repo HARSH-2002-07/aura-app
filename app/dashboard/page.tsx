@@ -23,14 +23,6 @@ export default async function DashboardPage() {
             Signed in as <span className="font-medium text-foreground">{user.email}</span>
           </p>
         </div>
-        <form action={logout}>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-md bg-destructive/10 text-destructive font-medium hover:bg-destructive/20 transition-colors"
-          >
-            Sign out
-          </button>
-        </form>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -55,7 +55,11 @@ export default async function LoginPage({
           </div>
 
           {message && (
-            <p className="mt-4 text-center text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+            <p className={`mt-4 text-center text-sm p-3 rounded-md ${
+              message.startsWith("Check") 
+                ? "text-accent bg-accent/10" 
+                : "text-destructive bg-destructive/10"
+            }`}>
               {message}
             </p>
           )}

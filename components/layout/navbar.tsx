@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { logout } from "@/app/auth/actions";
 
-export function Navbar() {
+export async function Navbar() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 max-w-screen-2xl items-center px-4 md:px-8">
@@ -19,19 +24,41 @@ export function Navbar() {
           >
             How it works
           </Link>
+          
           <div className="flex items-center gap-4">
-            <Link
-              href="/auth/login"
-              className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-transform hover:-translate-y-px hover:shadow-md"
-            >
-              Get started
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                >
+                  Dashboard
+                </Link>
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-transform hover:-translate-y-px hover:shadow-md"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-transform hover:-translate-y-px hover:shadow-md"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </div>
