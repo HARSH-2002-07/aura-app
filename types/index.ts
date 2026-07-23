@@ -182,3 +182,43 @@ export interface ApiErrorResponse {
   error: string;
   detail?: string;
 }
+
+export const WARDROBE_CATEGORIES = [
+  "Tops",
+  "Bottoms",
+  "Outerwear",
+  "Footwear",
+  "Accessories",
+] as const;
+
+export const WARDROBE_FORMALITIES = [
+  "Casual",
+  "Smart Casual",
+  "Business Casual",
+  "Formal",
+  "Athletic",
+] as const;
+
+export const WardrobeItemMetaSchema = z.object({
+  category: z.enum(WARDROBE_CATEGORIES),
+  sub_category: z.string().min(1).max(40).describe("e.g. 'Oxford Shirt', 'Chinos', 'Chelsea Boots'"),
+  color: z.string().min(1).max(30).describe("Primary color of the item, e.g. 'Navy Blue'"),
+  hex_color: HexColorSchema.describe("Closest hex color matching the item"),
+  formality: z.enum(WARDROBE_FORMALITIES),
+  pattern: z.string().min(1).max(30).describe("e.g. 'Solid', 'Striped', 'Plaid', 'Floral'"),
+  fabric: z.string().min(1).max(30).describe("e.g. 'Cotton', 'Linen', 'Denim', 'Leather', 'Synthetic'"),
+  style: z.string().min(1).max(30).describe("e.g. 'Minimalist', 'Streetwear', 'Classic', 'Preppy', 'Vintage'"),
+  weather: z.string().min(1).max(30).describe("Best weather condition to wear this, e.g. 'Hot & Sunny', 'Cool Breeze', 'Heavy Rain', 'Snow'"),
+  seasonality: z.array(z.enum(["Spring", "Summer", "Autumn", "Winter"])).min(1),
+  confidence_score: z.number().min(0).max(1).describe("AI confidence in this classification"),
+  is_favorite: z.boolean().optional(),
+});
+export type WardrobeItemMeta = z.infer<typeof WardrobeItemMetaSchema>;
+
+export interface WardrobeItem {
+  id: string;
+  user_id: string;
+  image_url: string;
+  meta: WardrobeItemMeta;
+  created_at: string;
+}

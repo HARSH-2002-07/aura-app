@@ -29,6 +29,12 @@ export async function Navbar() {
             {user ? (
               <>
                 <Link
+                  href="/closet"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                >
+                  Closet
+                </Link>
+                <Link
                   href="/dashboard"
                   className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
                 >

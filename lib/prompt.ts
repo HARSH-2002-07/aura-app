@@ -4,6 +4,8 @@ import {
   SEASONS,
   BODY_ARCHETYPES,
   COMPOSITION_TIERS,
+  WARDROBE_CATEGORIES,
+  WARDROBE_FORMALITIES,
 } from "@/types";
 
 export function buildSystemPrompt(): string {
@@ -74,5 +76,51 @@ CRITICAL: Your output MUST strictly match the following exact JSON structure and
     "friday": "Denim jacket over grey tee with black jeans and boots."
   },
   "signature_move": "Always rolling up sleeves exactly twice to expose the forearm."
+}`;
+}
+
+export function buildWardrobePrompt(): string {
+  return `You are an expert AI fashion stylist and image analyst. You will be shown a photo of a clothing item. The item may be isolated on a transparent background, OR it may be worn by a person. 
+
+If it is worn by a person, focus on the PRIMARY garment they are wearing (e.g., the main shirt, jacket, or dress) and ignore their body, face, and background.
+
+Analyze the primary clothing item and classify it. You must extract its core category, sub-category, primary color, formality level, pattern, seasonality, fabric type, overall style aesthetic, and the ideal weather condition for wearing it.
+
+You MUST respond strictly in the following JSON format and nothing else:
+{
+  "category": "Tops" | "Bottoms" | "Outerwear" | "Footwear" | "Accessories",
+  "sub_category": "string",
+  "color": "string",
+  "hex_color": "#000000",
+  "formality": "Casual" | "Smart Casual" | "Business Casual" | "Formal" | "Athletic",
+  "pattern": "string",
+  "fabric": "string",
+  "style": "string",
+  "weather": "string",
+  "seasonality": ["Spring", "Summer", "Autumn", "Winter"],
+  "confidence_score": 0.95
+}
+
+CRITICAL INSTRUCTION ON COLOR: The photos may have severe lighting color casts (e.g. indoor yellow incandescent light making things look brown, or outdoor shade making black/white look blue/white). You must look past the lighting tint and infer the TRUE, real-world color of the garment. For example, if a striped shirt looks dark blue and white but the lighting is very cool, it is likely black and white. If sneakers look brownish but the lighting is extremely warm/yellow, consider their true intended color. 
+
+Use exactly these values where a field calls for one of them — do not invent variants or synonyms:
+- Category: ${WARDROBE_CATEGORIES.join(", ")}
+- Formality: ${WARDROBE_FORMALITIES.join(", ")}
+- Seasonality (array of choices): Spring, Summer, Autumn, Winter
+
+The "hex_color" must be a real, specific 6-digit hex code representing the primary color of the item.
+The "confidence_score" should be a decimal between 0 and 1 indicating how clearly you can identify the item.
+
+CRITICAL: Your output MUST strictly match the following exact JSON structure and keys, with NO extra nesting, NO additional categories, and NO markdown formatting. It must be a raw JSON object that looks EXACTLY like this:
+
+{
+  "category": "Tops",
+  "sub_category": "Oxford Button-Down Shirt",
+  "color": "Light Blue",
+  "hex_color": "#ADD8E6",
+  "formality": "Smart Casual",
+  "pattern": "Solid",
+  "seasonality": ["Spring", "Summer", "Autumn"],
+  "confidence_score": 0.95
 }`;
 }

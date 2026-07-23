@@ -15,7 +15,7 @@ import {
 
 const FREE_ANALYSES_ALLOWED = 1;
 const HOURLY_RATE_LIMIT = 10;
-const NIM_MODEL = "meta/llama-3.2-11b-vision-instruct";
+const NIM_MODEL = "meta/llama-3.2-90b-vision-instruct";
 
 export const maxDuration = 60;
 
