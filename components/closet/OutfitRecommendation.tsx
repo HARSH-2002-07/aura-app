@@ -38,6 +38,30 @@ export default function OutfitRecommendation({ user }: OutfitRecommendationProps
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
   const [userFeedback, setUserFeedback] = useState<"like" | "dislike" | null>(null);
 
+  const handleFeedback = async (liked: boolean) => {
+    if (!currentOutfit) return;
+    const itemIds = [
+      currentOutfit.outerwear?.id,
+      currentOutfit.tops?.id,
+      currentOutfit.bottoms?.id,
+      currentOutfit.shoes?.id,
+    ].filter(Boolean) as string[];
+
+    if (itemIds.length === 0) return;
+
+    setUserFeedback(liked ? "like" : "dislike");
+
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_ids: itemIds, liked }),
+      });
+    } catch (err) {
+      console.error("Failed to send feedback:", err);
+    }
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -281,6 +305,30 @@ export default function OutfitRecommendation({ user }: OutfitRecommendationProps
                 >
                   <Heart className={`w-5 h-5 ${isSaved ? "fill-current" : ""}`} />
                   {isSaved ? "Saved!" : "Save Look"}
+                </button>
+
+                <button
+                  onClick={() => handleFeedback(true)}
+                  className={`px-4 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
+                    userFeedback === "like"
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md"
+                  }`}
+                >
+                  <ThumbsUp className={`w-4 h-4 ${userFeedback === "like" ? "fill-current" : ""}`} />
+                  {userFeedback === "like" ? "Liked!" : "Like"}
+                </button>
+
+                <button
+                  onClick={() => handleFeedback(false)}
+                  className={`px-4 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
+                    userFeedback === "dislike"
+                      ? "bg-rose-600 text-white shadow-lg shadow-rose-200"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-rose-300 hover:text-rose-600 hover:shadow-md"
+                  }`}
+                >
+                  <ThumbsDown className={`w-4 h-4 ${userFeedback === "dislike" ? "fill-current" : ""}`} />
+                  {userFeedback === "dislike" ? "Disliked!" : "Dislike"}
                 </button>
               </div>
             </div>

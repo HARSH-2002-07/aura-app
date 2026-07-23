@@ -9,9 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.18",
+    "@ai-sdk/react": "^4.0.38",
     "@imgly/background-removal-node": "^1.4.5",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
+    "ai": "^7.0.35",
     "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "cross-env": "^10.1.0",

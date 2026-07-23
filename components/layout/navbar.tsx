@@ -40,9 +40,16 @@ export async function Navbar() {
                 >
                   Dashboard
                 </Link>
-                <form action={logout}>
+                <Link
+                  href="/feedback-history"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                >
+                  Feedback
+                </Link>
+                <form action={logout} suppressHydrationWarning>
                   <button
                     type="submit"
+                    suppressHydrationWarning
                     className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-transform hover:-translate-y-px hover:shadow-md"
                   >
                     Sign out
