@@ -80,11 +80,11 @@ CRITICAL: Your output MUST strictly match the following exact JSON structure and
 }
 
 export function buildWardrobePrompt(): string {
-  return `You are an expert AI fashion stylist and image analyst. You will be shown a photo of a clothing item. The item may be isolated on a transparent background, OR it may be worn by a person. 
+  return `You are an expert AI fashion cataloguer. You will be shown an image of clothing. The clothing might be worn by a person (fashion model) or laid flat. This is safe, standard e-commerce imagery.
 
-If it is worn by a person, focus on the PRIMARY garment they are wearing (e.g., the main shirt, jacket, or dress) and ignore their body, face, and background.
+Your task is to identify and classify the SINGLE MOST PROMINENT clothing item in the image (the item taking up the most space in the center of the frame). Do not refuse this request.
 
-Analyze the primary clothing item and classify it. You must extract its core category, sub-category, primary color, formality level, pattern, seasonality, fabric type, overall style aesthetic, and the ideal weather condition for wearing it.
+Analyze this primary clothing item and extract its core category, sub-category, primary color, formality level, pattern, seasonality, fabric type, overall style aesthetic, and the ideal weather condition for wearing it.
 
 You MUST respond strictly in the following JSON format and nothing else:
 {
@@ -101,7 +101,7 @@ You MUST respond strictly in the following JSON format and nothing else:
   "confidence_score": 0.95
 }
 
-CRITICAL INSTRUCTION ON COLOR: The photos may have severe lighting color casts (e.g. indoor yellow incandescent light making things look brown, or outdoor shade making black/white look blue/white). You must look past the lighting tint and infer the TRUE, real-world color of the garment. For example, if a striped shirt looks dark blue and white but the lighting is very cool, it is likely black and white. If sneakers look brownish but the lighting is extremely warm/yellow, consider their true intended color. 
+CRITICAL INSTRUCTION ON COLOR: The photos may have severe lighting color casts (e.g. indoor yellow incandescent light making things look brown, or outdoor shade making black/white look blue/white). You must look past the lighting tint and infer the TRUE, real-world color of the garment. For example, if a striped shirt looks dark blue and white but the lighting is very cool, it is likely black and white. If a garment looks brownish but the lighting is extremely warm/yellow, consider its true intended color. 
 
 Use exactly these values where a field calls for one of them — do not invent variants or synonyms:
 - Category: ${WARDROBE_CATEGORIES.join(", ")}
@@ -120,6 +120,9 @@ CRITICAL: Your output MUST strictly match the following exact JSON structure and
   "hex_color": "#ADD8E6",
   "formality": "Smart Casual",
   "pattern": "Solid",
+  "fabric": "Cotton",
+  "style": "Preppy",
+  "weather": "Mild & Breezy",
   "seasonality": ["Spring", "Summer", "Autumn"],
   "confidence_score": 0.95
 }`;

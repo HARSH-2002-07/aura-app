@@ -8,21 +8,28 @@ export function Uploader() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const router = useRouter();
 
-  const handleFile = async (file: File) => {
-    try {
-      setIsUploading(true);
+  const handleFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setIsUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
 
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onload = (e) => resolve(e.target?.result as string);
-      });
-      reader.readAsDataURL(file);
-      const base64 = await base64Promise;
-      
-      // Set preview URL to show exactly what the browser sees
-      setPreviewUrl(base64);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        setUploadProgress({ current: i + 1, total: files.length });
+        const file = files[i];
+
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+        });
+        reader.readAsDataURL(file);
+        const base64 = await base64Promise;
+        
+        // Set preview URL to show exactly what the browser sees
+        setPreviewUrl(base64);
 
       // We'll use "Tops" as a default category for now, or let Llama Vision auto-detect it
       const category = "Tops";
@@ -42,13 +49,17 @@ export function Uploader() {
         throw new Error(err.details || err.error || "Failed to process image");
       }
 
+      }
+      
+      // Refresh only once after all uploads are done
       router.refresh();
     } catch (error) {
       console.error("Upload error:", error);
-      alert(error instanceof Error ? error.message : "Failed to upload image.");
+      alert(error instanceof Error ? error.message : "Failed to upload one or more images.");
     } finally {
       setIsUploading(false);
       setPreviewUrl(null);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -66,15 +77,17 @@ export function Uploader() {
       onDrop={(e) => {
         e.preventDefault();
         setIsDragging(false);
-        const file = e.dataTransfer.files[0];
-        if (file) handleFile(file);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) handleFiles(files);
       }}
     >
       {isUploading ? (
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-muted-foreground font-medium text-center">
-            Removing background &<br />AI tagging...
+            {uploadProgress.total > 1 
+              ? `Processing image ${uploadProgress.current} of ${uploadProgress.total}...`
+              : "Removing background & AI tagging..."}
           </p>
         </div>
       ) : (
@@ -92,9 +105,10 @@ export function Uploader() {
               type="file"
               className="hidden"
               accept="image/*"
+              multiple
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFile(file);
+                const files = Array.from(e.target.files || []);
+                if (files.length > 0) handleFiles(files);
               }}
             />
           </label>

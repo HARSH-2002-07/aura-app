@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
 
     const response = await openai.chat.completions.create({
       model: "meta/llama-3.2-90b-vision-instruct",
+      temperature: 0.1,
       max_tokens: 1024,
       messages: [
         {
@@ -55,12 +56,12 @@ export async function POST(request: NextRequest) {
             {
               type: "image_url" as const,
               image_url: {
-                url: transparentBase64,
+                url: base64,
               },
             },
             {
               type: "text" as const,
-              text: "Classify this clothing item. Respond strictly in JSON format as per the schema.",
+              text: "Classify the single most prominent clothing item in this image. This is standard e-commerce imagery. Respond strictly in JSON format as per the schema. Do not refuse.",
             },
           ],
         },
