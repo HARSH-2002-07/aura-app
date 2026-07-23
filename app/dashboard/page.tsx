@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { logout } from "../auth/actions";
+import DashboardClient from "./DashboardClient";
+import { WardrobeItem } from "@/types";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -12,34 +13,55 @@ export default async function DashboardPage() {
     redirect("/auth/login");
   }
 
-  return (
-    <div className="flex flex-1 flex-col p-8 space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-serif font-bold text-foreground">
-            Welcome to AURA
-          </h1>
-          <p className="text-foreground/60 mt-2">
-            Signed in as <span className="font-medium text-foreground">{user.email}</span>
-          </p>
-        </div>
-      </div>
+  // 1. Fetch user's style profile
+  const { data: profileData } = await supabase
+    .from("style_profiles")
+    .select("result")
+    .eq("user_id", user.id)
+    .single();
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Placeholder cards for future phases */}
-        <div className="p-6 rounded-2xl border border-border bg-card">
-          <h3 className="font-medium text-lg text-card-foreground">Style Profile</h3>
-          <p className="text-muted-foreground mt-2">Complete your onboarding to unlock your personal style profile.</p>
-        </div>
-        <div className="p-6 rounded-2xl border border-border bg-card">
-          <h3 className="font-medium text-lg text-card-foreground">Virtual Closet</h3>
-          <p className="text-muted-foreground mt-2">0 items in your wardrobe.</p>
-        </div>
-        <div className="p-6 rounded-2xl border border-border bg-card">
-          <h3 className="font-medium text-lg text-card-foreground">Subscription</h3>
-          <p className="text-muted-foreground mt-2">Free Tier</p>
-        </div>
-      </div>
-    </div>
+  // 2. Fetch user's wardrobe items
+  const { data: wardrobeData } = await supabase
+    .from("wardrobe_items")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  // 3. Fetch user's subscription
+  const { data: subscriptionData } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  // 4. Fetch user's saved outfits
+  const { data: savedOutfitsData } = await supabase
+    .from("saved_outfits")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  // 5. Fetch user's feedback history
+  const { data: feedbackData } = await supabase
+    .from("outfit_feedback")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const profile = profileData?.result || null;
+  const wardrobe: WardrobeItem[] = wardrobeData || [];
+  const subscription = subscriptionData || null;
+  const savedOutfits = savedOutfitsData || [];
+  const feedbackList = feedbackData || [];
+
+  return (
+    <DashboardClient
+      user={user}
+      profile={profile}
+      wardrobe={wardrobe}
+      subscription={subscription}
+      savedOutfits={savedOutfits}
+      feedbackList={feedbackList}
+    />
   );
 }
