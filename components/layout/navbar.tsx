@@ -46,6 +46,12 @@ export async function Navbar() {
                 >
                   Feedback
                 </Link>
+                <Link
+                  href="/pricing"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                >
+                  Pricing
+                </Link>
                 <form action={logout} suppressHydrationWarning>
                   <button
                     type="submit"

@@ -24,6 +24,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing or invalid base64 image data" }, { status: 400 });
     }
 
+    // Check Subscription & Closet limit for Free Tier
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("status")
+      .eq("user_id", user.id)
+      .single();
+
+    const isPro = sub?.status === "active";
+
+    if (!isPro) {
+      const { count } = await supabase
+        .from("wardrobe_items")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if (count && count >= 10) {
+        return NextResponse.json(
+          {
+            error: "Free Tier closet limit reached (10 items max). Upgrade to AURA Pro for unlimited wardrobe items!",
+            limitReached: true,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // 1. Remove background locally (Free ONNX Wasm)
     console.log("Stripping background...");
     const transparentBase64 = await stripBackground(base64);
