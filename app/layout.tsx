@@ -18,8 +18,14 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
-  title: "AURA | Personal Style & Wardrobe Assistant",
-  description: "AI-powered unified style and wardrobe assistant.",
+  title: "AURA | Personal AI Stylist & Wardrobe Intelligence",
+  description: "Transform your digital closet with AI-driven color season analysis, body archetype fitting, real-time weather adaptation, and personalized generative outfits.",
+  keywords: ["AI Stylist", "Wardrobe Assistant", "Color Season Analysis", "Fashion AI", "Outfit Planner"],
+  openGraph: {
+    title: "AURA | Personal AI Stylist & Wardrobe Intelligence",
+    description: "Your hyper-personalized AI fashion advisor and digital closet manager.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

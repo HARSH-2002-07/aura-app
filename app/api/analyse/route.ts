@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import OpenAI from "openai";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { envServer } from "@/lib/env.server";
 import { createClient } from "@/lib/supabase/server";
+import { stripe } from "@/lib/stripe";
 import { validateAndNormalizePhoto, stitchImagesIntoGrid, ImageValidationError } from "@/lib/image-pipeline";
 import { buildSystemPrompt } from "@/lib/prompt";
 import {
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       .join("; ");
     return errorResponse(400, "Invalid request body", detail);
   }
-  const { photos, profile } = parsed.data;
+  const { photos } = parsed.data;
 
   let normalizedPhotos: { base64: string }[];
   try {
@@ -81,24 +81,52 @@ export async function POST(request: NextRequest) {
     return errorResponse(429, "Too many analyses requested — try again in an hour");
   }
 
-  const { data: allowed, error: gateError } = await supabase.rpc("try_consume_analysis", {
-    p_user_id: user.id,
-    p_free_limit: FREE_ANALYSES_ALLOWED,
-  });
+  // 1. Check user subscription status in database & Stripe
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("status, stripe_customer_id")
+    .eq("user_id", user.id)
+    .single();
 
-  if (gateError) {
-    console.error(gateError);
-    return errorResponse(500, "Could not verify subscription status");
+  let isPro = sub?.status === "active";
+
+  // If DB status is not active, verify directly with Stripe checkout sessions
+  if (!isPro && user.email) {
+    try {
+      const sessions = await stripe.checkout.sessions.list({ limit: 10 });
+      const userSession = sessions.data.find(
+        (s) =>
+          s.payment_status === "paid" &&
+          (s.customer_details?.email === user.email || s.metadata?.userId === user.id)
+      );
+
+      if (userSession) {
+        isPro = true;
+      }
+    } catch (e) {
+      console.error("Stripe check in /api/analyse error:", e);
+    }
   }
-  if (!allowed) {
-    return errorResponse(
-      402,
-      "Free analysis already used — upgrade to Pro for unlimited analyses"
-    );
+
+  // If not Pro, enforce free analysis limit
+  if (!isPro) {
+    const { data: allowed } = await supabase.rpc("try_consume_analysis", {
+      p_user_id: user.id,
+      p_free_limit: FREE_ANALYSES_ALLOWED,
+    });
+
+    if (!allowed) {
+      return errorResponse(
+        402,
+        "You've used your free analysis. Upgrade to Pro for unlimited analyses."
+      );
+    }
   }
 
   const refund = async () => {
-    await supabase.rpc("refund_analysis", { p_user_id: user.id });
+    if (!isPro) {
+      await supabase.rpc("refund_analysis", { p_user_id: user.id });
+    }
   };
 
   const openai = new OpenAI({
@@ -106,100 +134,114 @@ export async function POST(request: NextRequest) {
     baseURL: "https://integrate.api.nvidia.com/v1",
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawSchema = zodToJsonSchema(StyleResultSchema as any, {
-    $refStrategy: "none",
-  }) as Record<string, unknown>;
-  const { $schema: _omit, ...inputSchema } = rawSchema;
+  const systemPrompt = buildSystemPrompt();
 
-  const stitchedBase64 = await stitchImagesIntoGrid(normalizedPhotos.map(p => p.base64));
+  const promptText = `
+Below is a single stitched 2x2 grid containing 4 photos of the user:
+- Top-Left: Face Front
+- Top-Right: Face Side
+- Bottom-Left: Body Front
+- Bottom-Right: Body Side
 
-  let toolInput: unknown;
+Analyze the user's facial features, skin tone, hair, contrast, and body proportions from this image grid. Return ONLY valid JSON adhering to the schema in the system prompt.
+`.trim();
+
+  let completion;
   try {
-    const response = await openai.chat.completions.create({
+    const stitchedBase64 = await stitchImagesIntoGrid(normalizedPhotos.map((p) => p.base64));
+
+    completion = await openai.chat.completions.create({
       model: NIM_MODEL,
-      max_tokens: 4096,
       messages: [
-        {
-          role: "system",
-          content: `${buildSystemPrompt()}\n\nYou must respond ONLY with raw JSON matching this JSON Schema:\n${JSON.stringify(inputSchema)}`,
-        },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
+            { type: "text", text: promptText },
             {
-              type: "image_url" as const,
-              image_url: {
-                url: `data:image/jpeg;base64,${stitchedBase64}`,
-              },
-            },
-            {
-              type: "text" as const,
-              text: `Client profile:\n${JSON.stringify(profile, null, 2)}\n\nCRITICAL INSTRUCTION: You must respond with ONLY raw JSON matching the required schema. Do not output markdown code blocks. Do not output any thinking or explanation text. Just the JSON object starting with { and ending with }.\n\nWARNING: Do NOT group fields into nested objects like "Facial Architecture". You MUST use the exact flat top-level keys defined in the schema.`,
+              type: "image_url",
+              image_url: { url: `data:image/jpeg;base64,${stitchedBase64}` },
             },
           ],
         },
       ],
+      temperature: 0.2,
+      top_p: 0.7,
+      max_tokens: 4096,
     });
-
-    const content = response.choices[0]?.message?.content;
-    
-    if (!content) {
-      throw new Error("Model returned empty response content");
-    }
-
-    const startIndex = content.indexOf("{");
-    const endIndex = content.lastIndexOf("}");
-    
-    if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
-      const jsonString = content.substring(startIndex, endIndex + 1);
-      console.log("Extracted JSON:", jsonString);
-      toolInput = JSON.parse(jsonString);
-    } else {
-      throw new Error("Model returned text but no parseable JSON object was found: " + content);
-    }
   } catch (err) {
-    console.error(err);
+    console.error("NVIDIA NIM Vision call failed:", err);
     await refund();
-    return errorResponse(502, "Style analysis service is temporarily unavailable");
+    return errorResponse(502, "AI Vision processing failed. Please try again.");
   }
 
-  const resultParsed = StyleResultSchema.safeParse(toolInput);
-  if (!resultParsed.success) {
-    console.error(resultParsed.error);
+  const rawContent = completion.choices[0]?.message?.content;
+  if (!rawContent) {
     await refund();
-    return errorResponse(502, "Style analysis service returned an invalid result");
+    return errorResponse(502, "AI model returned empty response");
   }
-  const result: StyleResult = resultParsed.data;
 
-  const { data: inserted, error: insertError } = await supabase
+  let cleanedContent = rawContent.trim();
+
+  if (cleanedContent.startsWith("```")) {
+    cleanedContent = cleanedContent.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+  }
+
+  const jsonStart = cleanedContent.indexOf("{");
+  const jsonEnd = cleanedContent.lastIndexOf("}");
+
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    cleanedContent = cleanedContent.slice(jsonStart, jsonEnd + 1);
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(cleanedContent);
+  } catch (parseErr) {
+    console.error("JSON parse error on raw content:", parseErr, "\nRaw Content:", rawContent);
+    await refund();
+    return errorResponse(502, "Failed to parse AI response");
+  }
+
+  const styleResultParse = StyleResultSchema.safeParse(parsedJson);
+  if (!styleResultParse.success) {
+    console.error("Zod Schema Validation Error:", styleResultParse.error.issues, "\nParsed JSON:", parsedJson);
+    await refund();
+    return errorResponse(502, "AI response did not match expected schema format");
+  }
+
+  const resultData: StyleResult = styleResultParse.data;
+
+  const { data: analysisData, error: insertError } = await supabase
     .from("analyses")
-    .insert({ user_id: user.id, result })
+    .insert({
+      user_id: user.id,
+      result: resultData,
+    })
     .select("id")
     .single();
 
-  if (insertError || !inserted) {
-    console.error(insertError);
+  if (insertError) {
+    console.error("Database insert error:", insertError);
     await refund();
-    return errorResponse(500, "Could not save analysis result");
+    return errorResponse(500, "Failed to save analysis result");
   }
 
-  const { error: profileError } = await supabase
+  await supabase
     .from("style_profiles")
     .upsert(
       {
         user_id: user.id,
-        color_season: result.season,
-        body_shape: result.body_archetype,
-        style_archetype: result.profile_title,
-        meta: result,
+        color_season: resultData.season,
+        body_shape: resultData.body_archetype,
+        style_archetype: resultData.profile_title,
+        meta: resultData,
       },
       { onConflict: "user_id" }
     );
 
-  if (profileError) {
-    console.error("Failed to update style_profile:", profileError);
-  }
-
-  return NextResponse.json({ analysisId: inserted.id, result });
+  return NextResponse.json({
+    analysisId: analysisData.id,
+    result: resultData,
+  });
 }

@@ -20,12 +20,29 @@ export default async function DashboardPage({
 
   const params = await searchParams;
 
-  // 1. Fetch user's style profile
+  // 1. Fetch user's style profile meta from style_profiles table
   const { data: profileData } = await supabase
     .from("style_profiles")
-    .select("result")
+    .select("meta")
     .eq("user_id", user.id)
     .single();
+
+  let profile = profileData?.meta || null;
+
+  // Fallback to latest analysis record if meta is null
+  if (!profile) {
+    const { data: latestAnalysis } = await supabase
+      .from("analyses")
+      .select("result")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (latestAnalysis?.result) {
+      profile = latestAnalysis.result;
+    }
+  }
 
   // 2. Fetch user's wardrobe items
   const { data: wardrobeData } = await supabase
@@ -132,7 +149,6 @@ export default async function DashboardPage({
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const profile = profileData?.result || null;
   const wardrobe: WardrobeItem[] = wardrobeData || [];
   const subscription = subscriptionData || null;
   const savedOutfits = savedOutfitsData || [];
